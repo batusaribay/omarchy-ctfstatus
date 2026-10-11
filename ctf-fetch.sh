@@ -105,7 +105,7 @@ fetch_thm_js() {
   browser="$(pick_thm_browser)" || return 1
   url="$THM_API?username=$(printf '%s' "$thm_username" | jq -Rr '@uri')"
   timeout "${CTFSTATUS_BROWSER_TIMEOUT:-45}" \
-    "$browser" --headless=new --disable-gpu --no-sandbox \
+    "$browser" --headless=new --disable-gpu \
     --user-data-dir="$CACHE_DIR/thm-chrome" \
     --virtual-time-budget=8000 --dump-dom "$url" 2>/dev/null \
     | sed -n 's/.*<pre>\(.*\)<\/pre>.*/\1/p' \
