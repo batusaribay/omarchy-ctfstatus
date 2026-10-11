@@ -36,14 +36,6 @@ the background.
 - `Model.js` sanitizes every value before rendering — plain text, length-capped,
   numbers coerced and bounded.
 
-## Privacy
-
-No accounts, tokens, or credentials — only the public profile id and username you
-enter are read, over HTTPS. The only data kept on disk is the public stats
-snapshot plus, when TryHackMe's anti-bot checkpoint triggers, an isolated Chromium
-profile, both under `~/.cache/omarchy-ctfstatus/` with `700` permissions. Nothing
-is sent anywhere else; delete that folder to erase it all.
-
 ## Installation
 
 **Requirements:** an [Omarchy](https://omarchy.org) install with an internet
