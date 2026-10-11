@@ -15,7 +15,7 @@
   "barWidget": {
     "displayName": "CTF Status",
     "description": "Your Hack The Box and TryHackMe stats side by side. Press r to refresh, e to set your profile ids, Esc to close.",
-    "category": "Developer Tools",
+    "category": "Widgets",
     "aliases": [
       "ctf",
       "ctfstatus",
