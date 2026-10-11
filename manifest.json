@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "batusaribay.ctfstatus",
+  "name": "CTF Status",
+  "version": "0.4.0",
+  "author": "batusaribay",
+  "license": "MIT",
+  "description": "Hack The Box and TryHackMe account status in Omarchy bar widget.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "CTF Status",
+    "description": "Your Hack The Box and TryHackMe stats side by side. Press r to refresh, e to set your profile ids, Esc to close.",
+    "category": "Developer Tools",
+    "aliases": [
+      "ctf",
+      "ctfstatus",
+      "htb",
+      "hackthebox",
+      "thm",
+      "tryhackme"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "schema": [
+      {
+        "key": "htbId",
+        "type": "string",
+        "label": "Hack The Box profile id",
+        "defaultValue": "",
+        "description": "Profile id from app.hackthebox.com/users/<id>, or paste the URL. Set your profile to public in HTB Labs settings."
+      },
+      {
+        "key": "thmUsername",
+        "type": "string",
+        "label": "TryHackMe username",
+        "defaultValue": "",
+        "description": "Username from tryhackme.com/p/<username>."
+      }
+    ]
+  }
+}
