@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "batusaribay.ctfstatus",
   "name": "CTF Status",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": "batusaribay",
   "license": "MIT",
   "description": "Hack The Box and TryHackMe account status in Omarchy bar widget.",

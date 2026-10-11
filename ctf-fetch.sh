@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 # Usage: ctf-fetch.sh <htbId|ProfileUrl> <thmUsername> <wantHtb 0|1> <wantThm 0|1> <force 0|1>
 htb_user="${1:-}"
@@ -8,13 +9,14 @@ want_htb="${3:-1}"
 want_thm="${4:-1}"
 force="${5:-0}"
 
-UA="omarchy-ctfstatus/0.3.0 (+https://omarchy.org)"
+UA="omarchy-ctfstatus/0.4.1 (+https://omarchy.org)"
 HTB_API="https://labs.hackthebox.com/api/v4"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-ctfstatus"
 CACHE_FILE="$CACHE_DIR/status.json"
 TTL="${CTFSTATUS_TTL:-300}"
 
 mkdir -p "$CACHE_DIR"
+chmod 700 "$CACHE_DIR" 2>/dev/null || true
 
 now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -101,15 +103,21 @@ fetch_thm() {
 }
 
 fetch_thm_js() {
-  local browser url
+  local browser url out
   browser="$(pick_thm_browser)" || return 1
   url="$THM_API?username=$(printf '%s' "$thm_username" | jq -Rr '@uri')"
-  timeout "${CTFSTATUS_BROWSER_TIMEOUT:-45}" \
+  out="$(timeout "${CTFSTATUS_BROWSER_TIMEOUT:-45}" \
     "$browser" --headless=new --disable-gpu \
     --user-data-dir="$CACHE_DIR/thm-chrome" \
+    --no-first-run --no-default-browser-check --disable-extensions \
+    --disable-sync --disable-default-apps --disable-background-networking \
+    --disable-component-update --disable-breakpad \
+    --disable-client-side-phishing-detection --disable-domain-reliability \
     --virtual-time-budget=8000 --dump-dom "$url" 2>/dev/null \
     | sed -n 's/.*<pre>\(.*\)<\/pre>.*/\1/p' \
-    | sed -e 's/&amp;/\&/g' -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#39;/'/g"
+    | sed -e 's/&amp;/\&/g' -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#39;/'/g")"
+  chmod -R go-rwx "$CACHE_DIR/thm-chrome" 2>/dev/null || true
+  printf '%s' "$out"
 }
 
 NORM_HTB='def num: if type=="number" then . elif type=="string" then (tonumber? // 0) else 0 end;
