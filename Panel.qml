@@ -202,6 +202,8 @@ Panel {
       blocked: root.editing
       onCloseRequested: root.close()
       onTextKey: function (t) {
+        if (!root.opened)
+          return
         var k = String(t).toLowerCase()
         if (k === "r")
           root.refresh(true)
