@@ -15,6 +15,7 @@ Panel {
 
   property var htb: null
   property var thm: null
+  property var cylab: null
   property bool loading: false
   property bool stale: false
   property double lastFetchMs: 0
@@ -29,9 +30,11 @@ Panel {
 
   readonly property string htbId: String(setting("htbId", "") || "").trim()
   readonly property string thmUsername: String(setting("thmUsername", "") || "").trim()
+  readonly property string cylabUsername: String(setting("cylabUsername", "") || "").trim()
 
   readonly property bool htbConfigured: htbId !== ""
   readonly property bool thmConfigured: thmUsername !== ""
+  readonly property bool cylabConfigured: cylabUsername !== ""
 
   readonly property string scriptPath: {
     var u = Qt.resolvedUrl("ctf-fetch.sh").toString()
@@ -73,6 +76,7 @@ Panel {
     var parsed = Model.parsePayload(raw)
     htb = htbConfigured ? parsed.htb : null
     thm = thmConfigured ? parsed.thm : null
+    cylab = cylabConfigured ? parsed.cylab : null
     stale = parsed.stale
     if (parsed.ok)
       lastFetchMs = Date.now()
@@ -99,6 +103,7 @@ Panel {
     Qt.callLater(function () {
       htbIdField.text = root.htbId
       thmUserField.text = root.thmUsername
+      cylabUserField.text = root.cylabUsername
       htbIdField.forceActiveFocus()
     })
   }
@@ -111,7 +116,8 @@ Panel {
   function saveSettings() {
     persistSettings({
       htbId: String(htbIdField.text || "").trim(),
-      thmUsername: String(thmUserField.text || "").trim()
+      thmUsername: String(thmUserField.text || "").trim(),
+      cylabUsername: String(cylabUserField.text || "").trim()
     })
     editing = false
     Qt.callLater(function () { keyCatcher.forceActiveFocus() })
@@ -141,8 +147,10 @@ Panel {
       "bash", root.scriptPath,
       root.htbId,
       root.thmUsername,
+      root.cylabUsername,
       root.htbConfigured ? "1" : "0",
       root.thmConfigured ? "1" : "0",
+      root.cylabConfigured ? "1" : "0",
       root.forceNext ? "1" : "0"
     ]
     stdout: StdioCollector {
@@ -265,9 +273,9 @@ Panel {
 
             Text {
               textFormat: Text.PlainText
-              visible: !root.htbConfigured && !root.thmConfigured
+              visible: !root.htbConfigured && !root.thmConfigured && !root.cylabConfigured
               width: parent.width
-              text: "No accounts configured. Press e and enter your Hack The Box id and/or TryHackMe username."
+              text: "No accounts configured. Press e and enter your Hack The Box id, TryHackMe or CyLab username."
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
@@ -277,14 +285,13 @@ Panel {
             Section {
               visible: root.htbConfigured
               title: "HACK THE BOX"
-              username: root.htb ? root.htb.username : ""
               providerOk: !!root.htb && root.htb.ok
               rows: Model.htbRows(root.htb)
               errorText: root.htb ? root.htb.error : ""
             }
 
             PanelSeparator {
-              visible: root.htbConfigured && root.thmConfigured
+              visible: root.htbConfigured && (root.thmConfigured || root.cylabConfigured)
               width: parent.width
               foreground: root.foreground
             }
@@ -292,10 +299,23 @@ Panel {
             Section {
               visible: root.thmConfigured
               title: "TRYHACKME"
-              username: root.thm ? root.thm.username : ""
               providerOk: !!root.thm && root.thm.ok
               rows: Model.thmRows(root.thm)
               errorText: root.thm ? root.thm.error : ""
+            }
+
+            PanelSeparator {
+              visible: root.thmConfigured && root.cylabConfigured
+              width: parent.width
+              foreground: root.foreground
+            }
+
+            Section {
+              visible: root.cylabConfigured
+              title: "CYLAB ACADEMY"
+              providerOk: !!root.cylab && root.cylab.ok
+              rows: Model.cylabRows(root.cylab)
+              errorText: root.cylab ? root.cylab.error : ""
             }
           }
 
@@ -321,6 +341,7 @@ Panel {
             TextField {
               id: htbIdField
               width: parent.width
+              readOnly: !(root.editing && activeFocus)
               placeholderText: "profile id or URL"
               foreground: root.foreground
               font.family: root.fontFamily
@@ -352,6 +373,7 @@ Panel {
             TextField {
               id: thmUserField
               width: parent.width
+              readOnly: !(root.editing && activeFocus)
               placeholderText: "username"
               foreground: root.foreground
               font.family: root.fontFamily
@@ -362,6 +384,38 @@ Panel {
               textFormat: Text.PlainText
               width: parent.width
               text: "Username from tryhackme.com/p/username."
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+            }
+
+            PanelSeparator {
+              width: parent.width
+              foreground: root.foreground
+            }
+
+            PanelSectionHeader {
+              width: parent.width
+              text: "CYLAB ACADEMY"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+            }
+
+            TextField {
+              id: cylabUserField
+              width: parent.width
+              readOnly: !(root.editing && activeFocus)
+              placeholderText: "username"
+              foreground: root.foreground
+              font.family: root.fontFamily
+              Keys.onEscapePressed: function (event) { root.cancelEditing(); event.accepted = true }
+            }
+
+            Text {
+              textFormat: Text.PlainText
+              width: parent.width
+              text: "Username from learn.cylabacademy.org/users/username."
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -418,7 +472,6 @@ Panel {
   component Section: Column {
     id: section
     property string title: ""
-    property string username: ""
     property var rows: []
     property string errorText: ""
     property bool providerOk: false
@@ -431,18 +484,6 @@ Panel {
       text: section.title
       foreground: root.foreground
       fontFamily: root.fontFamily
-    }
-
-    Text {
-      textFormat: Text.PlainText
-      visible: section.username !== ""
-      width: parent.width
-      text: section.username
-      color: root.foreground
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.body
-      font.bold: true
-      elide: Text.ElideRight
     }
 
     Text {

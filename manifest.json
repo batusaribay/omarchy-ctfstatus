@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "batusaribay.ctfstatus",
   "name": "CTF Status",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "author": "batusaribay",
   "license": "MIT",
-  "description": "Hack The Box and TryHackMe account status in Omarchy bar widget.",
+  "description": "Hack The Box, TryHackMe and CyLab Academy account status in Omarchy bar widget.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "CTF Status",
-    "description": "Your Hack The Box and TryHackMe stats side by side. Press r to refresh, e to set your profile ids, Esc to close.",
+    "description": "Your Hack The Box, TryHackMe and CyLab Academy stats side by side. Press r to refresh, e to set your profile ids, Esc to close.",
     "category": "Widgets",
     "aliases": [
       "ctf",
@@ -40,6 +40,13 @@
         "label": "TryHackMe username",
         "defaultValue": "",
         "description": "Username from tryhackme.com/p/<username>."
+      },
+      {
+        "key": "cylabUsername",
+        "type": "string",
+        "label": "CyLab Academy username",
+        "defaultValue": "",
+        "description": "Username from learn.cylabacademy.org/users/<username>."
       }
     ]
   }

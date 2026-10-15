@@ -2,15 +2,18 @@
 set -euo pipefail
 umask 077
 
-# Usage: ctf-fetch.sh <htbId|ProfileUrl> <thmUsername> <wantHtb 0|1> <wantThm 0|1> <force 0|1>
+# Usage: ctf-fetch.sh <htbId|ProfileUrl> <thmUsername> <cylabUsername> <wantHtb 0|1> <wantThm 0|1> <wantCylab 0|1> <force 0|1>
 htb_user="${1:-}"
 thm_username="${2:-}"
-want_htb="${3:-1}"
-want_thm="${4:-1}"
-force="${5:-0}"
+cylab_username="${3:-}"
+want_htb="${4:-1}"
+want_thm="${5:-1}"
+want_cylab="${6:-1}"
+force="${7:-0}"
 
-UA="omarchy-ctfstatus/0.4.1 (+https://omarchy.org)"
+UA="omarchy-ctfstatus/0.5.0 (+https://omarchy.org)"
 HTB_API="https://labs.hackthebox.com/api/v4"
+CYLAB_API="https://learn.cylabacademy.org/api"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-ctfstatus"
 CACHE_FILE="$CACHE_DIR/status.json"
 TTL="${CTFSTATUS_TTL:-300}"
@@ -42,6 +45,14 @@ if [[ -f "$CACHE_FILE" ]]; then
 fi
 
 htb_curl() {
+  curl -sSL \
+    --proto '=https' --proto-redir '=https' \
+    --tlsv1.2 \
+    --max-time 20 --retry 2 --retry-delay 1 --retry-connrefused \
+    -A "$UA" -H 'Accept: application/json' "$@"
+}
+
+cylab_curl() {
   curl -sSL \
     --proto '=https' --proto-redir '=https' \
     --tlsv1.2 \
@@ -145,6 +156,21 @@ select(.status == "success" and (.data != null)) | .data | {
   maxStreak: ((.largestStreak // 0)|num)
 }'
 
+NORM_CYLAB='def num: if type=="number" then . elif type=="string" then (tonumber? // 0) else 0 end;
+def str: if .==null then "" else tostring end;
+{
+  username: (.profile.username|str),
+  solved: ((.gym.overall.solved // 0)|num),
+  available: ((.gym.overall.available // 0)|num),
+  easySolved: ((.gym.by_difficulty["1"].solved // 0)|num),
+  easyTotal: ((.gym.by_difficulty["1"].available // 0)|num),
+  mediumSolved: ((.gym.by_difficulty["2"].solved // 0)|num),
+  mediumTotal: ((.gym.by_difficulty["2"].available // 0)|num),
+  hardSolved: ((.gym.by_difficulty["3"].solved // 0)|num),
+  hardTotal: ((.gym.by_difficulty["3"].available // 0)|num),
+  playlists: ((.profile.completed_playlists // 0)|length)
+}'
+
 # ---------------------------------------------------------------- Hack The Box
 htb_status="missing"; htb_data="null"; htb_error=""
 if [[ "$want_htb" == "1" && -n "$htb_user" ]]; then
@@ -190,6 +216,36 @@ if [[ "$thm_status" == "error" ]]; then
   fi
 fi
 
+# ------------------------------------------------------- CyLab Security Academy
+# CyLab (the successor to picoCTF) exposes a public profile keyed by username and
+# a challenge ("gym") breakdown keyed by the numeric id from that profile.
+cylab_status="missing"; cylab_data="null"; cylab_error=""
+if [[ "$want_cylab" == "1" && -n "$cylab_username" ]]; then
+  prof="$(cylab_curl "$CYLAB_API/users/$(printf '%s' "$cylab_username" | jq -Rr '@uri')/" 2>/dev/null || true)"
+  if [[ -z "$prof" ]]; then
+    cylab_status="error"; cylab_error="CyLab is unreachable"
+  elif [[ "$(printf '%s' "$prof" | jq -r 'has("detail")' 2>/dev/null)" == "true" ]]; then
+    cylab_status="error"; cylab_error="unknown user — check the username"
+  elif [[ "$(printf '%s' "$prof" | jq -r '.is_private' 2>/dev/null)" == "true" ]]; then
+    cylab_status="error"; cylab_error="this profile is private"
+  else
+    uid="$(printf '%s' "$prof" | jq -r '(.id // "")|tostring' 2>/dev/null)"
+    gym="$(cylab_curl "$CYLAB_API/users/${uid}/gym_stats/" 2>/dev/null || true)"
+    [[ -z "$gym" || "$gym" == "null" ]] && gym="{}"
+    if data="$(jq -cn --argjson p "$prof" --argjson g "$gym" '{profile:$p, gym:$g}' | jq -c "$NORM_CYLAB" 2>/dev/null)" && [[ -n "$data" && "$data" != "null" ]]; then
+      cylab_status="fresh"; cylab_data="$data"
+    else
+      cylab_status="error"; cylab_error="could not read the profile"
+    fi
+  fi
+fi
+if [[ "$cylab_status" == "error" ]]; then
+  fallback="$(printf '%s' "$prev" | jq -c '.cylab' 2>/dev/null || true)"
+  if [[ -n "$fallback" && "$fallback" != "null" ]]; then
+    cylab_status="stale"; cylab_data="$fallback"; cylab_error="offline — showing last saved"
+  fi
+fi
+
 provider_obj() {
   local status="$1" data="$2" err="$3" empty="$4"
   case "$status" in
@@ -212,18 +268,22 @@ htb_obj="$(provider_obj "$htb_status" "$htb_data" "$htb_error" \
   '{"username":"","rank":"","ranking":0,"points":0,"userOwns":0,"systemOwns":0}')"
 thm_obj="$(provider_obj "$thm_status" "$thm_data" "$thm_error" \
   '{"username":"","level":0,"rank":"","topPercentage":0,"points":0,"badges":0,"rooms":0,"streak":0,"maxStreak":0}')"
+cylab_obj="$(provider_obj "$cylab_status" "$cylab_data" "$cylab_error" \
+  '{"username":"","solved":0,"available":0,"easySolved":0,"easyTotal":0,"mediumSolved":0,"mediumTotal":0,"hardSolved":0,"hardTotal":0,"playlists":0}')"
 
 result="$(jq -cn \
   --arg now "$now" \
   --argjson htb "$htb_obj" \
   --argjson thm "$thm_obj" \
+  --argjson cylab "$cylab_obj" \
   '{
-    ok: (($htb != null and $htb.ok) or ($thm != null and $thm.ok)),
-    stale: (($htb != null and $htb.stale) or ($thm != null and $thm.stale)),
+    ok: (($htb != null and $htb.ok) or ($thm != null and $thm.ok) or ($cylab != null and $cylab.ok)),
+    stale: (($htb != null and $htb.stale) or ($thm != null and $thm.stale) or ($cylab != null and $cylab.stale)),
     source: "CTF Status",
     updated: $now,
     htb: $htb,
-    thm: $thm
+    thm: $thm,
+    cylab: $cylab
   }')"
 
 if [[ "$(printf '%s' "$result" | jq -r '.ok')" == "true" ]]; then

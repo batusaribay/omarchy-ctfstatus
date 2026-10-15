@@ -5,7 +5,7 @@ const MAX_TEXT = 64
 function parsePayload(raw) {
   var text = String(raw || "").trim()
   if (!text)
-    return { ok: false, stale: true, updated: "", htb: null, thm: null }
+    return { ok: false, stale: true, updated: "", htb: null, thm: null, cylab: null }
   try {
     var data = JSON.parse(text)
     return {
@@ -13,10 +13,11 @@ function parsePayload(raw) {
       stale: data.stale === true,
       updated: sanitizeText(data.updated || "", 40),
       htb: sanitizeHtb(data.htb),
-      thm: sanitizeThm(data.thm)
+      thm: sanitizeThm(data.thm),
+      cylab: sanitizeCylab(data.cylab)
     }
   } catch (e) {
-    return { ok: false, stale: true, updated: "", htb: null, thm: null }
+    return { ok: false, stale: true, updated: "", htb: null, thm: null, cylab: null }
   }
 }
 
@@ -52,6 +53,26 @@ function sanitizeThm(p) {
     rooms: toInt(p.rooms),
     streak: toInt(p.streak),
     maxStreak: toInt(p.maxStreak)
+  }
+}
+
+function sanitizeCylab(p) {
+  if (!p)
+    return null
+  return {
+    ok: p.ok === true,
+    stale: p.stale === true,
+    error: sanitizeText(p.error || "", 80),
+    username: sanitizeText(p.username, MAX_TEXT),
+    solved: toInt(p.solved),
+    available: toInt(p.available),
+    easySolved: toInt(p.easySolved),
+    easyTotal: toInt(p.easyTotal),
+    mediumSolved: toInt(p.mediumSolved),
+    mediumTotal: toInt(p.mediumTotal),
+    hardSolved: toInt(p.hardSolved),
+    hardTotal: toInt(p.hardTotal),
+    playlists: toInt(p.playlists)
   }
 }
 
@@ -101,5 +122,17 @@ function thmRows(p) {
     { label: "Points", value: formatNumber(p.points) },
     { label: "Rooms completed", value: String(p.rooms) },
     { label: "Badges", value: String(p.badges) }
+  ]
+}
+
+function cylabRows(p) {
+  if (!p)
+    return []
+  return [
+    { label: "Solved", value: p.solved + " / " + p.available },
+    { label: "Easy", value: p.easySolved + " / " + p.easyTotal },
+    { label: "Medium", value: p.mediumSolved + " / " + p.mediumTotal },
+    { label: "Hard", value: p.hardSolved + " / " + p.hardTotal },
+    { label: "Playlists completed", value: String(p.playlists) }
   ]
 }
