@@ -338,14 +338,12 @@ Panel {
               fontFamily: root.fontFamily
             }
 
-            TextField {
+            FieldInput {
               id: htbIdField
               width: parent.width
-              readOnly: !(root.editing && activeFocus)
-              placeholderText: "profile id or URL"
+              placeholder: "profile id or URL"
               foreground: root.foreground
-              font.family: root.fontFamily
-              Keys.onEscapePressed: function (event) { root.cancelEditing(); event.accepted = true }
+              fontFamily: root.fontFamily
             }
 
             Text {
@@ -370,14 +368,12 @@ Panel {
               fontFamily: root.fontFamily
             }
 
-            TextField {
+            FieldInput {
               id: thmUserField
               width: parent.width
-              readOnly: !(root.editing && activeFocus)
-              placeholderText: "username"
+              placeholder: "username"
               foreground: root.foreground
-              font.family: root.fontFamily
-              Keys.onEscapePressed: function (event) { root.cancelEditing(); event.accepted = true }
+              fontFamily: root.fontFamily
             }
 
             Text {
@@ -402,14 +398,12 @@ Panel {
               fontFamily: root.fontFamily
             }
 
-            TextField {
+            FieldInput {
               id: cylabUserField
               width: parent.width
-              readOnly: !(root.editing && activeFocus)
-              placeholderText: "username"
+              placeholder: "username"
               foreground: root.foreground
-              font.family: root.fontFamily
-              Keys.onEscapePressed: function (event) { root.cancelEditing(); event.accepted = true }
+              fontFamily: root.fontFamily
             }
 
             Text {
@@ -466,6 +460,74 @@ Panel {
           }
         }
       }
+    }
+  }
+
+  // Clipboard-safe text input. Native Qt text fields subscribe to clipboard
+  // changes and can pull foreign clipboard payloads into the shared shell, so
+  // the settings fields never instantiate one: this paints the buffer with a
+  // plain Text and edits it from key events, like the search panels do.
+  component FieldInput: Item {
+    id: field
+    property string text: ""
+    property string placeholder: ""
+    property color foreground: root.foreground
+    property color accent: Color.accent
+    property string fontFamily: root.fontFamily
+
+    readonly property real _hp: Style.spacing.controlPaddingX
+    readonly property real _vp: Style.spacing.inputPaddingY
+    readonly property bool _focused: activeFocus
+    readonly property var _borderSpec: Border.controlSpec(_focused ? "focus" : "normal", field.foreground, field.accent)
+
+    implicitHeight: label.implicitHeight + field._vp * 2 + Border.top(field._borderSpec) + Border.bottom(field._borderSpec)
+    activeFocusOnTab: true
+
+    Keys.onPressed: function (event) {
+      if (event.key === Qt.Key_Escape) {
+        root.cancelEditing()
+        event.accepted = true
+      } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+        root.saveSettings()
+        event.accepted = true
+      } else if (event.key === Qt.Key_U && event.modifiers === Qt.ControlModifier) {
+        field.text = ""
+        event.accepted = true
+      } else if (event.key === Qt.Key_Backspace) {
+        if (event.modifiers & (Qt.AltModifier | Qt.MetaModifier))
+          return
+        if (event.modifiers & Qt.ControlModifier)
+          field.text = field.text.replace(/\s+$/, "").replace(/\S+$/, "")
+        else
+          field.text = field.text.slice(0, -1)
+        event.accepted = true
+      } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127
+                 && (event.modifiers === Qt.NoModifier || event.modifiers === Qt.ShiftModifier)) {
+        field.text = field.text + event.text
+        event.accepted = true
+      }
+    }
+
+    BorderSurface {
+      anchors.fill: parent
+      color: Style.controlFill(field._focused, false, field.foreground, field.accent)
+      borderSpec: field._borderSpec
+      radius: Style.cornerRadius
+    }
+
+    Text {
+      id: label
+      textFormat: Text.PlainText
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.leftMargin: field._hp + Border.left(field._borderSpec)
+      anchors.rightMargin: field._hp + Border.right(field._borderSpec)
+      text: field.text !== "" ? field.text : field.placeholder
+      color: field.text !== "" ? field.foreground : Qt.darker(field.foreground, 1.6)
+      font.family: field.fontFamily
+      font.pixelSize: Style.font.body
+      elide: Text.ElideRight
     }
   }
 
